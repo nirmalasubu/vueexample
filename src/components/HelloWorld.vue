@@ -1,58 +1,195 @@
 <template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
-  </div>
+    <div :class="typeaheadState">
+        <div class="typeahead__toggle" ref="toggle" @mousedown.prevent="toggle">
+            <input type="text" class="typeahead__search" ref="search"
+                   v-model="search"
+                   @focus="onFocus"
+                   @blur="onBlur"
+                   @keydown.esc="onEscape"
+                   @keydown.down="onDownKey"
+                   @keydown.up="onUpKey"
+                   @keydown.enter="onEnterKey">
+            <span class="typeahead__text" ref="text">{{displayText}}</span>
+        </div>
+        <ul class="typeahead__list" ref="list" v-if="open">
+            <li class="typeahead__item" v-for="(option, index) in filteredOptions" :key="index">
+                <a class="typeahead__link" @mousedown.prevent="select(option)"
+                   :class="[selectIndex === index ? 'typeahead__active':'']">
+                    {{option.text}}
+                </a>
+            </li>
+        </ul>
+    </div>
 </template>
+<script type="text/javascript">
+    export default {
+        props: {
+            options: {
+                type: Array,
+                default() {
+                    return []
+                }
+            },
+            value: {
+                type: [String, Number],
+                default: null
+            }
+        },
+        data() {
+            return {
+                open: false,
+                selectIndex: 0,
+                displayText: '',
+                search: ''
+            }
+        },
+        computed: {
+            typeaheadState() {
+                return this.open ? 'typeahead typeahead__open' : 'typeahead'
+            },
+            filteredOptions() {
+                const exp = new RegExp(this.search, 'i')
+                return this.options.filter((option) => {
+                    return (exp.test(option.id) || exp.test(option.text))
+                })
+            }
+        },
+        methods: {
+            onDownKey() {
 
-<script>
-export default {
-  name: 'HelloWorld',
-  props: {
-    msg: String
-  }
-}
+                if (this.filteredOptions.length - 1 > this.selectIndex) {
+                    this.displayText = ''
+                    this.search = ''
+                    this.selectIndex++
+                    // scroll when overflow
+                    if (this.selectIndex > 2) {
+                        this.$refs.list.scrollTop += (20 + this.selectIndex)
+                    }
+                }
+            },
+            onUpKey() {
+                if (this.selectIndex > 0) {
+                    this.selectIndex--
+                    // scroll when overflow
+                    if (this.selectIndex > 0) {
+                        this.$refs.list.scrollTop -= (20 + this.selectIndex)
+                    }
+                }
+            },
+            onEnterKey() {
+                const option = this.filteredOptions[this.selectIndex]
+                if (option) {
+                    this.select(option)
+                }
+            },
+            select(option) {
+                this.displayText = option.text,
+                    this.$emit('input', (option.id))
+                this.$refs.search.blur()
+            },
+            toggle(e) {
+                if (e.target === this.$refs.toggle ||
+                    e.target === this.$refs.search ||
+                    e.target === this.$refs.text) {
+                    if (this.open) {
+                        if (e.target !== this.$refs.search &&
+                            e.target !== this.$refs.text) {
+                            this.$refs.search.blur()
+                        }
+                    } else {
+                        this.$refs.search.focus()
+                    }
+                }
+            },
+            onFocus() {
+                this.open = true
+            },
+            onBlur() {
+
+                this.search = ''
+                this.selectIndex = 0
+                this.$refs.list.scrollTop = 0
+                this.open = false
+            },
+            onEscape() {
+                this.$refs.search.blur()
+            }
+        }
+    }
 </script>
+<style type="text/css">
+    .typeahead {
+        border-radius: 3px;
+        border: 1px solid #ccc;
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        font-size: 14px;
+    }
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
-}
+    .typeahead__open {
+        border: 1px solid #41B883;
+    }
+
+        .typeahead__open .typeahead__text {
+            color: #999;
+            opacity: 0.4;
+        }
+
+    .typeahead__toggle {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+    }
+
+    .typeahead__search {
+        position: absolute;
+        top: 0;
+        left: 0;
+        line-height: 1em;
+        font-size: 1em;
+        padding: 10px;
+        width: 100%;
+        display: block;
+        cursor: text;
+        background: transparent;
+        border: none;
+        outline: none;
+        z-index: 2;
+    }
+
+    .typeahead__text {
+        min-height: 36px;
+        font-size: 1em;
+        line-height: 1em;
+        padding: 10px;
+        display: inline-block;
+        position: relative;
+        z-index: 3;
+    }
+
+    .typeahead__list {
+        margin: 0;
+        padding: 0;
+        max-height: 200px;
+        overflow-y: scroll;
+    }
+
+    .typeahead__item {
+        display: block;
+        border-top: 1px solid #f4f4f4;
+    }
+
+    .typeahead__link {
+        display: block;
+        padding: 10px;
+        line-height: 1em;
+        font-size: 1em;
+        cursor: pointer;
+    }
+
+    .typeahead__active {
+        background: #41B883;
+        color: #fff;
+    }
 </style>
